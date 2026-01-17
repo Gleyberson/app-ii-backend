@@ -9,7 +9,7 @@ const router = Router();
 router.get('/', async (req, res) => {
 
     try {
-        const result = await userModel.find();
+        const result = await userModel.find().select('-password');
         res.send({
             status: 'success',
             payload: result
@@ -37,9 +37,11 @@ router.post('/', async (req, res) => {
             cart: cartToUse,
             role
         });
+        const safeUser = result.toObject();
+        delete safeUser.password;
         res.send({
             status: 'success',
-            payload: result
+            payload: safeUser
         });
     } catch (error) {
         res.status(400).send({

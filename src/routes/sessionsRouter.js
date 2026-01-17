@@ -33,6 +33,7 @@ router.get("/current", passport.authenticate("current", { session: false }), asy
             message: "User not found"
         });
     }
+    delete user.password;
     return res.send({
         status: "success",
         payload: user
