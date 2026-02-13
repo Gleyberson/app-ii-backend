@@ -1,165 +1,161 @@
-# API Backend - Usuarios, Autenticación y Autorización
+# API Backend - Arquitectura Profesional Ecommerce
 
-Backend en Node.js + Express + MongoDB con CRUD de usuarios, autenticación mediante Passport y JWT, y endpoint de validación de sesión actual.
+Backend en Node.js + Express + MongoDB refactorizado con arquitectura por capas y enfoque profesional:
 
-## Índice
-- [Descripción](#descripción)
-- [Tecnologías](#tecnologías)
-- [Estructura del proyecto](#estructura-del-proyecto)
-- [Requisitos](#requisitos)
-- [Instalación y ejecución](#instalación-y-ejecución)
-- [Variables de entorno](#variables-de-entorno)
-- [Modelo de Usuario](#modelo-de-usuario)
-- [Rutas disponibles](#rutas-disponibles)
-- [Guía de pruebas con Postman](#guía-de-pruebas-con-postman)
-- [Notas de seguridad](#notas-de-seguridad)
-
-## Descripción
-Este proyecto implementa un sistema completo de usuarios con:
-
-- CRUD de usuarios.
-- Hashing de contraseña con bcrypt.
-- Estrategia de login con Passport (Local).
-- Autenticación con JWT.
-- Endpoint `/api/sessions/current` para validar la sesión y devolver los datos del usuario asociado al token.
+- Patrón DAO + Repository.
+- DTO para datos sensibles.
+- Autenticación con Passport + JWT.
+- Autorización por rol (`admin`, `user`).
+- Recuperación de contraseña por mail con expiración de 1 hora.
+- Lógica de compra con ticket y manejo de compra parcial por stock.
 
 ## Tecnologías
+
 - Node.js
 - Express
 - MongoDB + Mongoose
-- Passport (Local + JWT)
+- Passport (`local`, `jwt`)
 - bcrypt
 - jsonwebtoken
+- nodemailer
+- dotenv
 
-## Estructura del proyecto
+## Arquitectura
+
 ```
 src/
 	app.js
 	config/
+		env.js
+		mailer.js
 		passport.js
+	controllers/
+		cartsController.js
+		productsController.js
+		sessionsController.js
+		userController.js
+	dao/
+		cartDao.js
+		productDao.js
+		ticketDao.js
+		userDao.js
+	dto/
+		currentUserDto.js
+	middlewares/
+		authorization.js
 	models/
-		userModel.js
 		cartModel.js
+		productModel.js
+		ticketModel.js
+		userModel.js
+	repositories/
+		cartRepository.js
+		productRepository.js
+		ticketRepository.js
+		userRepository.js
 	routes/
-		userRouter.js
+		cartsRouter.js
+		productsRouter.js
 		sessionsRouter.js
+		userRouter.js
+	services/
+		cartService.js
+		productService.js
+		purchaseService.js
+		sessionService.js
+		userService.js
 	utils/
-		password.js
 		jwt.js
+		password.js
 ```
 
-## Requisitos
-- Node.js 18+ recomendado
-- MongoDB local o Atlas
+## Instalación
 
-## Instalación y ejecución
 1. Instalar dependencias:
 	 - `npm install`
-2. Levantar servidor:
+2. Completar variables de entorno en `.env`.
+3. Levantar servidor:
 	 - `npm run start`
 
-Servidor por defecto en: `http://localhost:8080`
+Servidor por defecto: `http://localhost:8080`
 
 ## Variables de entorno
-Opcionalmente podés configurar:
 
-- `JWT_SECRET`: clave para firmar los tokens JWT.
+Archivo incluido: `.env`
 
-Si no se define, se usa el valor por defecto en `src/utils/jwt.js`. Para producción es obligatorio setear una clave segura.
+Variables:
 
-## Modelo de Usuario
-Campos definidos en el modelo:
+- `PORT`
+- `MONGO_URI`
+- `JWT_SECRET`
+- `JWT_EXPIRES_IN`
+- `FRONTEND_URL`
+- `MAIL_HOST`
+- `MAIL_PORT`
+- `MAIL_USER`
+- `MAIL_PASS`
+- `MAIL_FROM`
 
-- `first_name` (String, requerido)
-- `last_name` (String, requerido)
-- `email` (String, requerido, único)
-- `age` (Number, requerido)
-- `password` (String, requerido, hash)
-- `cart` (ObjectId, referencia a carts)
-- `role` (String, default: "user")
+> Si no configurás SMTP, el servicio de mail usa `jsonTransport` para desarrollo.
 
-## Rutas disponibles
+## Autorización por rol
 
-### Usuarios
-Base: `/api/users`
+- Solo `admin` puede crear, actualizar y eliminar productos.
+- Solo `user` puede agregar productos al carrito y ejecutar compra de carrito.
 
-- `GET /` → Lista todos los usuarios (sin password).
-- `POST /` → Crea un usuario.
-- `PUT /:uid` → Actualiza un usuario.
-- `DELETE /:uid` → Elimina un usuario.
+## Endpoints
 
-### Sesiones
-Base: `/api/sessions`
+### Usuarios (`/api/users`)
 
-- `POST /login` → Login de usuario. Devuelve JWT.
-- `GET /current` → Valida JWT y devuelve usuario asociado.
+- `GET /` Listar usuarios (sin datos sensibles).
+- `POST /` Crear usuario.
+- `PUT /:uid` Actualizar usuario.
+- `DELETE /:uid` Eliminar usuario.
 
-## Guía de pruebas con Postman
+### Sesiones (`/api/sessions`)
 
-### 1) Crear usuario
-**Endpoint**: `POST http://localhost:8080/api/users`
+- `POST /login` Login y obtención de JWT.
+- `GET /current` Usuario actual usando DTO (`id`, `first_name`, `last_name`, `email`, `role`).
+- `POST /forgot-password` Solicitar recuperación (envía mail con link).
+- `POST /reset-password` Restablecer contraseña con token temporal (1h).
 
-**Body (JSON)**:
-```
+Body ejemplo `forgot-password`:
+
+```json
 {
-	"first_name": "Juan",
-	"last_name": "Perez",
-	"email": "juan@mail.com",
-	"age": 28,
-	"password": "123456",
-	"role": "user"
+	"email": "user@mail.com"
 }
 ```
 
-**Respuesta esperada**: `status: success` y usuario creado (sin `password`).
+Body ejemplo `reset-password`:
 
-### 2) Login y obtener token
-**Endpoint**: `POST http://localhost:8080/api/sessions/login`
-
-**Body (JSON)**:
-```
+```json
 {
-	"email": "juan@mail.com",
-	"password": "123456"
+	"email": "user@mail.com",
+	"token": "token_recibido_en_mail",
+	"newPassword": "nuevaClave123"
 }
 ```
 
-**Respuesta esperada**:
-```
-{
-	"status": "success",
-	"token": "<JWT>"
-}
-```
+Reglas de reset:
 
-### 3) Validar usuario actual
-**Endpoint**: `GET http://localhost:8080/api/sessions/current`
+- El token expira a la hora.
+- No se permite reutilizar la contraseña actual.
 
-**Headers**:
-```
-Authorization: Bearer <JWT>
-```
+### Productos (`/api/products`)
 
-**Respuesta esperada**: `status: success` y datos del usuario asociado al token.
+- `GET /` Listar productos.
+- `POST /` Crear producto (`admin`).
+- `PUT /:pid` Actualizar producto (`admin`).
+- `DELETE /:pid` Eliminar producto (`admin`).
 
-### 4) Listar usuarios
-**Endpoint**: `GET http://localhost:8080/api/users`
+### Carritos (`/api/carts`)
 
-### 5) Actualizar usuario
-**Endpoint**: `PUT http://localhost:8080/api/users/:uid`
+- `POST /:cid/products/:pid` Agregar producto al carrito (`user`).
+- `POST /:cid/purchase` Comprar carrito (`user`).
 
-**Body (JSON)**:
-```
-{
-	"age": 30,
-	"role": "admin"
-}
-```
+Respuesta de compra:
 
-### 6) Eliminar usuario
-**Endpoint**: `DELETE http://localhost:8080/api/users/:uid`
-
-## Notas de seguridad
-- Las contraseñas se almacenan en formato hash (bcrypt).
-- El endpoint `/current` requiere JWT válido.
-- Para producción, definir `JWT_SECRET` con una clave segura.
+- Genera `ticket` cuando hay productos procesados.
+- Devuelve productos no procesados por falta de stock.
+- Vacía del carrito los comprados y mantiene solo pendientes.

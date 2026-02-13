@@ -1,43 +1,16 @@
 import { Router } from "express";
 import passport from "passport";
-import userModel from "../models/userModel.js";
-import { generateToken } from "../utils/jwt.js";
+import { login, getCurrent, forgotPassword, resetPassword } from "../controllers/sessionsController.js";
 
 const router = Router();
 
 // Login con JWT
-router.post("/login", (req, res, next) => {
-    passport.authenticate("login", { session: false }, (err, user, info) => {
-        if (err) return next(err);
-        if (!user) {
-            return res.status(401).send({
-                status: "error",
-                message: info?.message || "Unauthorized"
-            });
-        }
-
-        const token = generateToken(user);
-        return res.send({
-            status: "success",
-            token
-        });
-    })(req, res, next);
-});
+router.post("/login", login);
 
 // Current: valida usuario por JWT
-router.get("/current", passport.authenticate("current", { session: false }), async (req, res) => {
-    const user = await userModel.findById(req.user._id).lean();
-    if (!user) {
-        return res.status(404).send({
-            status: "error",
-            message: "User not found"
-        });
-    }
-    delete user.password;
-    return res.send({
-        status: "success",
-        payload: user
-    });
-});
+router.get("/current", passport.authenticate("current", { session: false }), getCurrent);
+
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
 
 export default router;
